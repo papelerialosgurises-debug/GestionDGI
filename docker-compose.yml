@@ -1,0 +1,9 @@
+services:
+  control-iva-app:
+    container_name: ${APP_NAME:-control-iva-app}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8085}:80"
+    restart: unless-stopped
