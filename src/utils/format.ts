@@ -1,15 +1,20 @@
 import type { AppConfig } from '../types'
 
-export const formatearMoneda = (value: number, config: AppConfig) =>
-  new Intl.NumberFormat('es-UY', {
+const safeNumber = (value: number) => (Number.isFinite(value) ? value : 0)
+const safeDecimals = (value: number) => Math.min(Math.max(Math.trunc(Number.isFinite(value) ? value : 2), 0), 4)
+
+export const formatearMoneda = (value: number, config: AppConfig) => {
+  const decimales = safeDecimals(config.decimales)
+  return new Intl.NumberFormat('es-UY', {
     style: 'currency',
     currency: config.moneda || 'UYU',
-    minimumFractionDigits: config.decimales,
-    maximumFractionDigits: config.decimales,
-  }).format(value || 0)
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  }).format(safeNumber(value))
+}
 
 export const formatNumber = (value: number, decimales = 2) =>
   new Intl.NumberFormat('es-UY', {
-    minimumFractionDigits: decimales,
-    maximumFractionDigits: decimales,
-  }).format(value || 0)
+    minimumFractionDigits: safeDecimals(decimales),
+    maximumFractionDigits: safeDecimals(decimales),
+  }).format(safeNumber(value))
