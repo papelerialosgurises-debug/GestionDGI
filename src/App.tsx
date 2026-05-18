@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
@@ -26,7 +26,12 @@ const views: Record<ViewKey, ReactNode> = {
 function App() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated)
   const clearBusinessData = useAppStore((state) => state.clearBusinessData)
+  const loadServerData = useAppStore((state) => state.loadServerData)
   const [activeView, setActiveView] = useState<ViewKey>('dashboard')
+
+  useEffect(() => {
+    if (isAuthenticated) void loadServerData()
+  }, [isAuthenticated, loadServerData])
 
   if (!isAuthenticated) return <LoginView />
 
@@ -35,10 +40,8 @@ function App() {
       resetKey={activeView}
       onBackToDashboard={() => setActiveView('dashboard')}
       onClearLocalData={() => {
-        localStorage.removeItem('control-iva-uy-local')
-        clearBusinessData()
+        void clearBusinessData()
         setActiveView('dashboard')
-        window.location.reload()
       }}
     >
       <Layout activeView={activeView} setActiveView={setActiveView}>

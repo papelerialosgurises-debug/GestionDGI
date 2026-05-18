@@ -1,6 +1,6 @@
 # Control IVA Uruguay
 
-Aplicacion web local para control administrativo y estimacion simple de IVA de un negocio en Uruguay.
+Aplicacion web para control administrativo y estimacion simple de IVA de un negocio en Uruguay.
 
 No integra APIs reales de DGI, no genera declaraciones oficiales y no reemplaza asesoramiento profesional. Es una herramienta interna para comparar IVA ventas contra IVA compras.
 
@@ -14,8 +14,9 @@ No integra APIs reales de DGI, no genera declaraciones oficiales y no reemplaza 
 - Liquidacion mensual estimada.
 - Exportacion a Excel con `exceljs`.
 - Configuracion de tasa IVA, moneda, nombre del negocio y decimales.
-- Persistencia local con `localStorage` mediante Zustand.
+- Persistencia centralizada en PostgreSQL mediante backend Node/Express y Prisma.
 - Datos demo opcionales desde Configuracion.
+- Importacion opcional de datos antiguos guardados en `localStorage`.
 
 ## Acceso
 
@@ -25,7 +26,7 @@ Contrasena inicial:
 43823225
 ```
 
-Esta proteccion es solo local y no es autenticacion segura real.
+Esta proteccion sigue siendo basica y no reemplaza autenticacion real con usuarios, sesiones seguras y permisos.
 
 ## Desarrollo local
 
@@ -41,10 +42,31 @@ Ejecutar Vite:
 npm run dev
 ```
 
+En otra terminal, configurar y ejecutar el backend:
+
+```bash
+cd backend
+npm install
+npx prisma generate
+npm run dev
+```
+
+Para desarrollo local el backend necesita una base PostgreSQL y `DATABASE_URL`, por ejemplo:
+
+```env
+DATABASE_URL=postgresql://gestiondgi:gestiondgi_password@localhost:5432/gestiondgi?schema=public
+```
+
 Luego abrir la URL que indique Vite, normalmente:
 
 ```txt
 http://localhost:5173
+```
+
+Si el backend local corre en otro origen, crear `.env` en la raiz:
+
+```env
+VITE_API_URL=http://localhost:3001/api
 ```
 
 ## Build de produccion
@@ -67,39 +89,50 @@ Validar lint:
 npm run lint
 ```
 
-## Docker
-
-El proyecto incluye un `Dockerfile` multi-stage:
-
-- Etapa 1: Node compila React/Vite.
-- Etapa 2: Nginx sirve los archivos estaticos de `dist`.
-
-Construir imagen:
+Compilar backend:
 
 ```bash
-docker build -t control-iva-app .
+cd backend
+npm run build
 ```
 
-Ejecutar contenedor:
+## Docker
+
+El proyecto incluye Docker Compose con tres servicios:
+
+- `frontend`: React/Vite compilado y servido por Nginx.
+- `backend`: Node.js + Express + Prisma.
+- `db`: PostgreSQL con volumen persistente.
+
+Levantar todo:
 
 ```bash
-docker run -d --name control-iva-app -p 8085:80 --restart unless-stopped control-iva-app
+docker compose up -d --build
+```
+
+Abrir:
+
+```txt
+http://localhost:8095
 ```
 
 Ver logs:
 
 ```bash
-docker logs -f control-iva-app
+docker compose logs -f
 ```
 
-Detener y eliminar el contenedor:
+Detener:
 
 ```bash
-docker stop control-iva-app
-docker rm control-iva-app
+docker compose down
 ```
 
-## Docker Compose
+Los datos de PostgreSQL se mantienen en el volumen:
+
+```txt
+postgres_data
+```
 
 Crear archivo `.env` a partir del ejemplo si queres cambiar el puerto:
 
@@ -113,42 +146,41 @@ Levantar en segundo plano:
 docker compose up -d --build
 ```
 
-Abrir:
+Variables principales:
+
+```env
+FRONTEND_PORT=8095
+POSTGRES_USER=gestiondgi
+POSTGRES_PASSWORD=gestiondgi_password
+POSTGRES_DB=gestiondgi
+DATABASE_URL=postgresql://gestiondgi:gestiondgi_password@db:5432/gestiondgi?schema=public
+VITE_API_URL=/api
+```
+
+El frontend usa `/api`; Nginx reenvia esas solicitudes al servicio `backend` dentro de Docker.
+
+## Migrar datos locales antiguos
+
+Si ya tenias datos cargados en un navegador antes de esta version, entrar a Configuracion y usar:
 
 ```txt
-http://localhost:8085
+Importar datos locales al servidor
 ```
 
-Ver logs:
-
-```bash
-docker logs -f control-iva-app
-```
-
-Detener:
-
-```bash
-docker compose down
-```
-
-Reconstruir despues de cambios:
-
-```bash
-docker compose up -d --build
-```
+Esto lee el `localStorage` de ese navegador y envia empresas, compras, ventas y configuracion al backend.
 
 ## Cambiar puerto
 
 Editar `.env`:
 
 ```env
-APP_PORT=8085
+FRONTEND_PORT=8095
 ```
 
 Por ejemplo, para usar el puerto `8090`:
 
 ```env
-APP_PORT=8090
+FRONTEND_PORT=8090
 ```
 
 Luego reconstruir o reiniciar:
@@ -157,13 +189,55 @@ Luego reconstruir o reiniciar:
 docker compose up -d --build
 ```
 
+## API
+
+Endpoints principales:
+
+```txt
+GET    /api/empresas
+POST   /api/empresas
+PUT    /api/empresas/:id
+DELETE /api/empresas/:id
+
+GET    /api/compras
+POST   /api/compras
+PUT    /api/compras/:id
+DELETE /api/compras/:id
+
+GET    /api/ventas
+POST   /api/ventas
+PUT    /api/ventas/:id
+DELETE /api/ventas/:id
+
+GET    /api/config
+PUT    /api/config
+```
+
+## Base de datos
+
+Prisma define modelos para:
+
+```txt
+Empresa
+Compra
+Venta
+Config
+```
+
+Las migraciones se aplican automaticamente al iniciar el contenedor backend:
+
+```bash
+npx prisma migrate deploy
+```
+
 ## Nginx
 
-La configuracion `nginx.conf` esta preparada para SPA:
+La configuracion `nginx.conf` esta preparada para SPA y proxy de API:
 
 - `try_files` hace fallback a `index.html`.
 - Permite refresh en rutas internas.
 - Sirve assets estaticos con cache.
+- Reenvia `/api` al backend.
 - Agrega headers basicos de seguridad.
 
 ## Scripts
@@ -173,4 +247,14 @@ npm run dev
 npm run build
 npm run preview
 npm run lint
+```
+
+Backend:
+
+```bash
+cd backend
+npm run dev
+npm run build
+npm run prisma:generate
+npm run prisma:migrate
 ```

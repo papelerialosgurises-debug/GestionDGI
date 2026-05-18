@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { api } from '../api/client'
 import { demoCompras, demoEmpresas, demoVentas } from '../data/demoData'
 import type { AppConfig, Compra, Empresa, Venta } from '../types'
 import { calcularCompraConIVAIncluido, calcularCompraSinIVAIncluido, calcularVentaConIVAIncluido } from '../utils/tax'
@@ -10,23 +11,29 @@ type State = {
   compras: Compra[]
   ventas: Venta[]
   config: AppConfig
+  loading: boolean
+  error: string
   login: (password: string) => boolean
   logout: () => void
-  addEmpresa: (empresa: Empresa) => void
-  updateEmpresa: (empresa: Empresa) => void
-  deleteEmpresa: (id: string) => void
-  addCompra: (compra: Compra) => void
-  updateCompra: (compra: Compra) => void
-  deleteCompra: (id: string) => void
-  addVenta: (venta: Venta) => void
-  updateVenta: (venta: Venta) => void
-  deleteVenta: (id: string) => void
-  updateConfig: (config: AppConfig) => void
-  loadDemoData: () => void
-  clearBusinessData: () => void
+  loadServerData: () => Promise<void>
+  addEmpresa: (empresa: Empresa) => Promise<void>
+  updateEmpresa: (empresa: Empresa) => Promise<void>
+  deleteEmpresa: (id: string) => Promise<void>
+  addCompra: (compra: Compra) => Promise<void>
+  updateCompra: (compra: Compra) => Promise<void>
+  deleteCompra: (id: string) => Promise<void>
+  addVenta: (venta: Venta) => Promise<void>
+  updateVenta: (venta: Venta) => Promise<void>
+  deleteVenta: (id: string) => Promise<void>
+  updateConfig: (config: AppConfig) => Promise<void>
+  loadDemoData: () => Promise<void>
+  clearBusinessData: () => Promise<void>
+  importLocalDataToServer: () => Promise<void>
+  clearError: () => void
 }
 
 const INITIAL_PASSWORD = '43823225'
+const LEGACY_STORAGE_KEY = 'control-iva-uy-local'
 
 export const defaultConfig: AppConfig = {
   tasaIVA: 22,
@@ -120,15 +127,27 @@ const normalizeVentas = (value: unknown, config: AppConfig): Venta[] =>
       })
     : []
 
-const normalizePersistedState = (value: unknown) => {
-  const source = isObject(value) ? value : {}
-  const config = normalizeConfig(source.config)
+const readLegacyLocalData = () => {
+  const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
+  if (!raw) return { empresas: [], compras: [], ventas: [], config: defaultConfig }
+  const parsed = JSON.parse(raw) as { state?: unknown }
+  const state = isObject(parsed.state) ? parsed.state : {}
+  const config = normalizeConfig(state.config)
   return {
-    isAuthenticated: Boolean(source.isAuthenticated),
-    empresas: normalizeEmpresas(source.empresas),
-    compras: normalizeCompras(source.compras, config),
-    ventas: normalizeVentas(source.ventas, config),
+    empresas: normalizeEmpresas(state.empresas),
+    compras: normalizeCompras(state.compras, config),
+    ventas: normalizeVentas(state.ventas, config),
     config,
+  }
+}
+
+const runServerOperation = async (set: (partial: Partial<State>) => void, operation: () => Promise<void>) => {
+  set({ error: '' })
+  try {
+    await operation()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor'
+    set({ error: message })
   }
 }
 
@@ -140,6 +159,8 @@ export const useAppStore = create<State>()(
       compras: [],
       ventas: [],
       config: defaultConfig,
+      loading: false,
+      error: '',
       // Proteccion basica local. Esto NO es autenticacion segura real ni reemplaza un backend.
       login: (password) => {
         const ok = password === INITIAL_PASSWORD
@@ -147,31 +168,86 @@ export const useAppStore = create<State>()(
         return ok
       },
       logout: () => set({ isAuthenticated: false }),
-      addEmpresa: (empresa) => set({ empresas: [empresa, ...get().empresas] }),
-      updateEmpresa: (empresa) => set({ empresas: get().empresas.map((item) => (item.id === empresa.id ? empresa : item)) }),
-      deleteEmpresa: (id) =>
-        set({
-          empresas: get().empresas.filter((item) => item.id !== id),
-          compras: get().compras.filter((item) => item.empresaId !== id),
-        }),
-      addCompra: (compra) => set({ compras: [compra, ...get().compras] }),
-      updateCompra: (compra) => set({ compras: get().compras.map((item) => (item.id === compra.id ? compra : item)) }),
-      deleteCompra: (id) => set({ compras: get().compras.filter((item) => item.id !== id) }),
-      addVenta: (venta) => set({ ventas: [venta, ...get().ventas] }),
-      updateVenta: (venta) => set({ ventas: get().ventas.map((item) => (item.id === venta.id ? venta : item)) }),
-      deleteVenta: (id) => set({ ventas: get().ventas.filter((item) => item.id !== id) }),
-      updateConfig: (config) => set({ config }),
-      loadDemoData: () => set({ empresas: demoEmpresas, compras: demoCompras, ventas: demoVentas }),
-      clearBusinessData: () => set({ empresas: [], compras: [], ventas: [] }),
+      loadServerData: async () => {
+        set({ loading: true, error: '' })
+        try {
+          const [empresas, compras, ventas, config] = await Promise.all([
+            api.getEmpresas(),
+            api.getCompras(),
+            api.getVentas(),
+            api.getConfig(),
+          ])
+          set({ empresas, compras, ventas, config: normalizeConfig(config), loading: false })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'No se pudo cargar informacion del servidor'
+          set({ error: message, loading: false })
+        }
+      },
+      addEmpresa: async (empresa) => runServerOperation(set, async () => {
+        await api.createEmpresa(empresa)
+        await get().loadServerData()
+      }),
+      updateEmpresa: async (empresa) => runServerOperation(set, async () => {
+        await api.updateEmpresa(empresa)
+        await get().loadServerData()
+      }),
+      deleteEmpresa: async (id) => runServerOperation(set, async () => {
+        await api.deleteEmpresa(id)
+        await get().loadServerData()
+      }),
+      addCompra: async (compra) => runServerOperation(set, async () => {
+        await api.createCompra(compra)
+        await get().loadServerData()
+      }),
+      updateCompra: async (compra) => runServerOperation(set, async () => {
+        await api.updateCompra(compra)
+        await get().loadServerData()
+      }),
+      deleteCompra: async (id) => runServerOperation(set, async () => {
+        await api.deleteCompra(id)
+        await get().loadServerData()
+      }),
+      addVenta: async (venta) => runServerOperation(set, async () => {
+        await api.createVenta(venta)
+        await get().loadServerData()
+      }),
+      updateVenta: async (venta) => runServerOperation(set, async () => {
+        await api.updateVenta(venta)
+        await get().loadServerData()
+      }),
+      deleteVenta: async (id) => runServerOperation(set, async () => {
+        await api.deleteVenta(id)
+        await get().loadServerData()
+      }),
+      updateConfig: async (config) => runServerOperation(set, async () => {
+        await api.updateConfig(config)
+        await get().loadServerData()
+      }),
+      loadDemoData: async () => runServerOperation(set, async () => {
+        for (const empresa of demoEmpresas) await api.createEmpresa(empresa)
+        for (const compra of demoCompras) await api.createCompra(compra)
+        for (const venta of demoVentas) await api.createVenta(venta)
+        await get().loadServerData()
+      }),
+      clearBusinessData: async () => runServerOperation(set, async () => {
+        for (const compra of get().compras) await api.deleteCompra(compra.id)
+        for (const venta of get().ventas) await api.deleteVenta(venta.id)
+        for (const empresa of get().empresas) await api.deleteEmpresa(empresa.id)
+        await get().loadServerData()
+      }),
+      importLocalDataToServer: async () => runServerOperation(set, async () => {
+        const localData = readLegacyLocalData()
+        await api.updateConfig(localData.config)
+        for (const empresa of localData.empresas) await api.createEmpresa(empresa)
+        for (const compra of localData.compras) await api.createCompra(compra)
+        for (const venta of localData.ventas) await api.createVenta(venta)
+        await get().loadServerData()
+      }),
+      clearError: () => set({ error: '' }),
     }),
     {
-      name: 'control-iva-uy-local',
-      version: 2,
-      migrate: (persistedState) => normalizePersistedState(persistedState),
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...normalizePersistedState(persistedState),
-      }),
+      name: 'control-iva-uy-auth',
+      partialize: (state) => ({ isAuthenticated: state.isAuthenticated }),
     },
   ),
 )

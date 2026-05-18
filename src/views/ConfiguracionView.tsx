@@ -5,7 +5,7 @@ import { defaultConfig, useAppStore } from '../store/useAppStore'
 import type { AppConfig } from '../types'
 
 export function ConfiguracionView() {
-  const { config, updateConfig, loadDemoData, clearBusinessData } = useAppStore()
+  const { config, updateConfig, loadDemoData, clearBusinessData, importLocalDataToServer } = useAppStore()
   const [form, setForm] = useState<AppConfig>(config)
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -29,6 +29,11 @@ export function ConfiguracionView() {
           <h3 className="text-sm font-semibold text-slate-950">Datos demo</h3>
           <p className="mt-2 text-sm leading-6 text-slate-500">Carga empresas, compras y ventas de ejemplo para probar dashboard, graficas y exportaciones.</p>
           <div className="mt-4 flex flex-wrap gap-2"><button className={secondaryButtonClass} type="button" onClick={loadDemoData}>Cargar datos demo</button><button className={dangerButtonClass} type="button" onClick={() => confirm('Eliminar todos los datos de negocio?') && clearBusinessData()}>Limpiar datos</button></div>
+          <div className="mt-6 border-t border-slate-100 pt-4">
+            <h3 className="text-sm font-semibold text-slate-950">Migracion inicial</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Importa al servidor los datos antiguos guardados en este navegador.</p>
+            <button className={secondaryButtonClass} type="button" onClick={importLocalDataToServer}>Importar datos locales al servidor</button>
+          </div>
         </Panel>
       </div>
     </>

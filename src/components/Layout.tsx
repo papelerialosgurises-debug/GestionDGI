@@ -23,7 +23,7 @@ export function Layout({
   setActiveView: (view: ViewKey) => void
   children: ReactNode
 }) {
-  const { logout, config } = useAppStore()
+  const { logout, config, loading, error, clearError } = useAppStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
@@ -98,7 +98,18 @@ export function Layout({
         </div>
       </aside>
       <main className="min-w-0 flex-1 lg:pl-60 xl:pl-64">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-5 md:px-6 lg:px-6 lg:py-6 xl:px-8">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-5 md:px-6 lg:px-6 lg:py-6 xl:px-8">
+          {error ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <span>{error}</span>
+              <button type="button" className="font-semibold" onClick={clearError}>
+                Cerrar
+              </button>
+            </div>
+          ) : null}
+          {loading ? <p className="mb-4 text-sm text-slate-500">Cargando datos del servidor...</p> : null}
+          {children}
+        </div>
       </main>
     </div>
   )

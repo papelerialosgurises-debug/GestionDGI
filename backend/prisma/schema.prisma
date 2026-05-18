@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompraTipo {
+  iva_incluido
+  sin_iva
+}
+
+model Empresa {
+  id        String   @id @default(uuid())
+  nombre    String
+  rut       String?
+  direccion String?
+  telefono  String?
+  email     String?
+  notas     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  compras   Compra[]
+}
+
+model Compra {
+  id             String     @id @default(uuid())
+  fecha          DateTime
+  empresaId      String
+  montoIngresado Decimal    @db.Decimal(14, 2)
+  tipo           CompraTipo
+  numero         String?
+  descripcion    String?
+  montoSinIVA    Decimal    @db.Decimal(14, 2)
+  iva            Decimal    @db.Decimal(14, 2)
+  montoTotal     Decimal    @db.Decimal(14, 2)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  empresa        Empresa    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+}
+
+model Venta {
+  id          String   @id @default(uuid())
+  fecha       DateTime
+  montoTotal  Decimal  @db.Decimal(14, 2)
+  ventaSinIVA Decimal  @db.Decimal(14, 2)
+  iva         Decimal  @db.Decimal(14, 2)
+  descripcion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Config {
+  id                  String   @id @default("default")
+  nombreNegocio       String   @default("Mi negocio")
+  tasaIVA             Decimal  @default(22) @db.Decimal(6, 2)
+  moneda              String   @default("UYU")
+  redondearDecimales  Int      @default(2)
+}

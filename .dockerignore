@@ -1,5 +1,7 @@
 node_modules
 dist
+backend
+.vite
 .git
 .gitignore
 .env
@@ -7,5 +9,8 @@ Dockerfile
 docker-compose.yml
 vite-dev.log
 vite-dev.err.log
+vite-local.log
+vite-local.out.log
+vite-local.err.log
 npm-debug.log*
 README.md
