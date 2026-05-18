@@ -7,6 +7,24 @@ import { currentMonth, currentYear, monthNames } from '../utils/date'
 import { formatearMoneda } from '../utils/format'
 import { calcularResumenMensual, interpretarSaldo } from '../utils/tax'
 
+const saldoIvaTextClass = (saldoIVA: number) => {
+  if (saldoIVA > 0) return 'text-red-700'
+  if (saldoIVA < 0) return 'text-emerald-700'
+  return 'text-slate-950'
+}
+
+const saldoIvaLabelClass = (saldoIVA: number) => {
+  if (saldoIVA > 0) return 'text-red-700'
+  if (saldoIVA < 0) return 'text-emerald-700'
+  return 'text-slate-500'
+}
+
+const saldoIvaPanelClass = (saldoIVA: number) => {
+  if (saldoIVA > 0) return 'border-red-200 bg-red-50'
+  if (saldoIVA < 0) return 'border-emerald-200 bg-emerald-50'
+  return 'border-slate-200 bg-slate-50'
+}
+
 export function DashboardView() {
   const { compras, ventas, empresas, config } = useAppStore()
   const [month, setMonth] = useState(currentMonth())
@@ -44,13 +62,13 @@ export function DashboardView() {
           <Field label="Ano" tooltip="Elegir el ano fiscal del periodo que queres revisar.">
             <input className={inputClass} type="number" value={year} onChange={(event) => setYear(Number(event.target.value))} />
           </Field>
-          <div className={`rounded-lg border p-3 ${resumen.saldoIVA > 0 ? 'border-red-200 bg-red-50' : resumen.saldoIVA < 0 ? 'border-orange-200 bg-orange-50' : 'border-slate-200 bg-slate-50'}`}>
-            <p className={`text-sm ${resumen.saldoIVA === 0 ? 'text-slate-500' : 'text-red-700'}`}>
+          <div className={`rounded-lg border p-3 ${saldoIvaPanelClass(resumen.saldoIVA)}`}>
+            <p className={`text-sm ${saldoIvaLabelClass(resumen.saldoIVA)}`}>
               <TooltipLabel tooltip="Indica si el mes da IVA estimado a pagar, credito fiscal estimado o saldo cero.">
                 {interpretarSaldo(resumen.saldoIVA)}
               </TooltipLabel>
             </p>
-            <p className={`mt-1 text-xl font-semibold ${resumen.saldoIVA === 0 ? 'text-slate-950' : 'text-red-700'}`}>{formatearMoneda(resumen.saldoIVA, config)}</p>
+            <p className={`mt-1 text-xl font-semibold ${saldoIvaTextClass(resumen.saldoIVA)}`}>{formatearMoneda(resumen.saldoIVA, config)}</p>
           </div>
         </div>
       </Panel>
@@ -60,7 +78,7 @@ export function DashboardView() {
             <p className="text-sm text-slate-500">
               <TooltipLabel tooltip={tooltip as string}>{label}</TooltipLabel>
             </p>
-            <p className={`mt-2 text-xl font-semibold md:text-2xl ${label === 'Saldo IVA' && (value as number) !== 0 ? 'text-red-700' : 'text-slate-950'}`}>
+            <p className={`mt-2 text-xl font-semibold md:text-2xl ${label === 'Saldo IVA' ? saldoIvaTextClass(value as number) : 'text-slate-950'}`}>
               {formatearMoneda(value as number, config)}
             </p>
           </Panel>

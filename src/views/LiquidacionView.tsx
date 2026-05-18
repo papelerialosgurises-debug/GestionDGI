@@ -6,6 +6,18 @@ import { currentMonth, currentYear, monthNames } from '../utils/date'
 import { formatearMoneda } from '../utils/format'
 import { calcularResumenMensual, interpretarSaldo } from '../utils/tax'
 
+const saldoIvaTextClass = (saldoIVA: number) => {
+  if (saldoIVA > 0) return 'text-red-700'
+  if (saldoIVA < 0) return 'text-emerald-700'
+  return 'text-slate-950'
+}
+
+const saldoIvaPanelClass = (saldoIVA: number) => {
+  if (saldoIVA > 0) return 'border-red-200 bg-red-50'
+  if (saldoIVA < 0) return 'border-emerald-200 bg-emerald-50'
+  return 'border-slate-200 bg-slate-50'
+}
+
 export function LiquidacionView() {
   const { compras, ventas, config } = useAppStore()
   const [month, setMonth] = useState(currentMonth())
@@ -38,17 +50,17 @@ export function LiquidacionView() {
             {rows.map(([label, value, tooltip]) => (
               <div key={label as string} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                 <span className="text-slate-600"><TooltipLabel tooltip={tooltip as string}>{label}</TooltipLabel></span>
-                <strong className={label === 'Saldo IVA' && (value as number) !== 0 ? 'text-red-700' : 'text-slate-950'}>{typeof value === 'number' && String(label).startsWith('Cantidad') ? value : formatearMoneda(value as number, config)}</strong>
+                <strong className={label === 'Saldo IVA' ? saldoIvaTextClass(value as number) : 'text-slate-950'}>{typeof value === 'number' && String(label).startsWith('Cantidad') ? value : formatearMoneda(value as number, config)}</strong>
               </div>
             ))}
           </div>
         </Panel>
-        <Panel className={resumen.saldoIVA > 0 ? 'border-red-200 bg-red-50' : resumen.saldoIVA < 0 ? 'border-orange-200 bg-orange-50' : 'bg-slate-50'}>
+        <Panel className={saldoIvaPanelClass(resumen.saldoIVA)}>
           <p className="text-sm font-medium text-slate-600">
             <TooltipLabel tooltip="Resultado final de restar IVA compras al IVA ventas del mes.">Resultado final</TooltipLabel>
           </p>
           <h2 className="mt-3 text-xl font-semibold text-slate-950 md:text-2xl">{interpretarSaldo(resumen.saldoIVA)}</h2>
-          <p className={`mt-4 text-2xl font-bold md:text-3xl ${resumen.saldoIVA === 0 ? 'text-slate-950' : 'text-red-700'}`}>{formatearMoneda(resumen.saldoIVA, config)}</p>
+          <p className={`mt-4 text-2xl font-bold md:text-3xl ${saldoIvaTextClass(resumen.saldoIVA)}`}>{formatearMoneda(resumen.saldoIVA, config)}</p>
           <p className="mt-4 text-xs leading-5 text-slate-500">Estimacion interna para control administrativo. No reemplaza asesoramiento profesional ni presentaciones oficiales.</p>
         </Panel>
       </div>
