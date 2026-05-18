@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Field, Panel, SectionHeader, TooltipLabel, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from '../components/ui'
 import { InfoTooltip } from '../components/InfoTooltip'
+import { useToast } from '../components/toastContext'
 import { useAppStore } from '../store/useAppStore'
 import type { Empresa } from '../types'
 
@@ -10,13 +11,14 @@ const emptyEmpresa = (): Empresa => ({ id: crypto.randomUUID(), nombre: '', rut:
 
 export function EmpresasView() {
   const { empresas, addEmpresa, updateEmpresa, deleteEmpresa } = useAppStore()
+  const toast = useToast()
   const [form, setForm] = useState<Empresa>(emptyEmpresa())
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
   const editing = empresas.some((item) => item.id === form.id)
   const filtered = useMemo(() => empresas.filter((item) => item.nombre.toLowerCase().includes(search.toLowerCase()) || (item.rut ?? '').includes(search)), [empresas, search])
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
     setError('')
     if (!form.nombre.trim()) {
@@ -28,12 +30,28 @@ export function EmpresasView() {
       setError('Ya existe una empresa con ese nombre exacto.')
       return
     }
-    if (editing) {
-      updateEmpresa(form)
-    } else {
-      addEmpresa(form)
+    try {
+      if (editing) {
+        await updateEmpresa(form)
+        toast.success('Empresa actualizada correctamente.')
+      } else {
+        await addEmpresa(form)
+        toast.success('Empresa agregada correctamente.')
+      }
+      setForm(emptyEmpresa())
+    } catch {
+      toast.error('Ocurrio un error al guardar. Intenta nuevamente.')
     }
-    setForm(emptyEmpresa())
+  }
+
+  const removeEmpresa = async (id: string) => {
+    if (!confirm('Eliminar empresa y sus compras asociadas?')) return
+    try {
+      await deleteEmpresa(id)
+      toast.success('Empresa eliminada correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al eliminar. Intenta nuevamente.')
+    }
   }
 
   return (
@@ -95,7 +113,7 @@ export function EmpresasView() {
                     <td className="tablet-optional" data-label="Telefono">{empresa.telefono}</td>
                     <td className="tablet-card-actions text-right" data-label="Acciones">
                       <span className="inline-flex items-center gap-2"><button className={secondaryButtonClass} type="button" onClick={() => setForm(empresa)}><Edit2 size={15} /></button><InfoTooltip text="Carga esta empresa en el formulario para modificar sus datos." /></span>
-                      <span className="ml-2 inline-flex items-center gap-2"><button className={dangerButtonClass} type="button" onClick={() => confirm('Eliminar empresa y sus compras asociadas?') && deleteEmpresa(empresa.id)}><Trash2 size={15} /></button><InfoTooltip text="Elimina la empresa. Tambien se eliminan compras asociadas a ella." /></span>
+                      <span className="ml-2 inline-flex items-center gap-2"><button className={dangerButtonClass} type="button" onClick={() => void removeEmpresa(empresa.id)}><Trash2 size={15} /></button><InfoTooltip text="Elimina la empresa. Tambien se eliminan compras asociadas a ella." /></span>
                     </td>
                   </tr>
                 ))}

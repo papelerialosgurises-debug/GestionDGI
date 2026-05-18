@@ -5,15 +5,20 @@ import { exportarExcel } from '../utils/exportExcel'
 import { currentMonth, currentYear } from '../utils/date'
 import { secondaryButtonClass } from './ui'
 import { InfoTooltip } from './InfoTooltip'
+import { useToast } from './toastContext'
 
 export function ExportButton({ month = currentMonth(), year = currentYear(), label = 'Exportar Excel' }: { month?: number; year?: number; label?: string }) {
   const { empresas, compras, ventas, config } = useAppStore()
+  const toast = useToast()
   const [busy, setBusy] = useState(false)
 
   const handleExport = async () => {
     setBusy(true)
     try {
       await exportarExcel(empresas, compras, ventas, config, { month, year })
+      toast.success('Excel exportado correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al exportar Excel. Intenta nuevamente.')
     } finally {
       setBusy(false)
     }

@@ -148,6 +148,7 @@ const runServerOperation = async (set: (partial: Partial<State>) => void, operat
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor'
     set({ error: message })
+    throw error
   }
 }
 

@@ -1,15 +1,50 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { useToast } from '../components/toastContext'
 import { Field, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from '../components/ui'
 import { defaultConfig, useAppStore } from '../store/useAppStore'
 import type { AppConfig } from '../types'
 
 export function ConfiguracionView() {
   const { config, updateConfig, loadDemoData, clearBusinessData, importLocalDataToServer } = useAppStore()
+  const toast = useToast()
   const [form, setForm] = useState<AppConfig>(config)
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    updateConfig({ ...form, tasaIVA: Number(form.tasaIVA), decimales: Number(form.decimales) })
+    try {
+      await updateConfig({ ...form, tasaIVA: Number(form.tasaIVA), decimales: Number(form.decimales) })
+      toast.success('Configuracion guardada correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al guardar. Intenta nuevamente.')
+    }
+  }
+
+  const loadDemo = async () => {
+    try {
+      await loadDemoData()
+      toast.success('Datos demo cargados correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al cargar datos demo. Intenta nuevamente.')
+    }
+  }
+
+  const clearData = async () => {
+    if (!confirm('Eliminar todos los datos de negocio?')) return
+    try {
+      await clearBusinessData()
+      toast.success('Datos eliminados correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al limpiar datos. Intenta nuevamente.')
+    }
+  }
+
+  const importLocalData = async () => {
+    try {
+      await importLocalDataToServer()
+      toast.success('Datos locales importados correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al importar datos. Intenta nuevamente.')
+    }
   }
 
   return (
@@ -28,11 +63,11 @@ export function ConfiguracionView() {
         <Panel>
           <h3 className="text-sm font-semibold text-slate-950">Datos demo</h3>
           <p className="mt-2 text-sm leading-6 text-slate-500">Carga empresas, compras y ventas de ejemplo para probar dashboard, graficas y exportaciones.</p>
-          <div className="mt-4 flex flex-wrap gap-2"><button className={secondaryButtonClass} type="button" onClick={loadDemoData}>Cargar datos demo</button><button className={dangerButtonClass} type="button" onClick={() => confirm('Eliminar todos los datos de negocio?') && clearBusinessData()}>Limpiar datos</button></div>
+          <div className="mt-4 flex flex-wrap gap-2"><button className={secondaryButtonClass} type="button" onClick={() => void loadDemo()}>Cargar datos demo</button><button className={dangerButtonClass} type="button" onClick={() => void clearData()}>Limpiar datos</button></div>
           <div className="mt-6 border-t border-slate-100 pt-4">
             <h3 className="text-sm font-semibold text-slate-950">Migracion inicial</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">Importa al servidor los datos antiguos guardados en este navegador.</p>
-            <button className={secondaryButtonClass} type="button" onClick={importLocalDataToServer}>Importar datos locales al servidor</button>
+            <button className={secondaryButtonClass} type="button" onClick={() => void importLocalData()}>Importar datos locales al servidor</button>
           </div>
         </Panel>
       </div>

@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import { ExportButton } from '../components/ExportButton'
 import { Field, Panel, SectionHeader, TooltipLabel, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from '../components/ui'
 import { InfoTooltip } from '../components/InfoTooltip'
+import { useToast } from '../components/toastContext'
 import { useAppStore } from '../store/useAppStore'
 import type { Compra } from '../types'
 import { currentMonth, currentYear, formatDate, isInMonth, monthNames } from '../utils/date'
@@ -14,6 +15,7 @@ const emptyCompra = (): Compra => ({ id: crypto.randomUUID(), fecha: new Date().
 
 export function ComprasView() {
   const { compras, empresas, addCompra, updateCompra, deleteCompra, config } = useAppStore()
+  const toast = useToast()
   const [form, setForm] = useState<Compra>(emptyCompra())
   const [month, setMonth] = useState(currentMonth())
   const [empresaId, setEmpresaId] = useState('all')
@@ -22,16 +24,32 @@ export function ComprasView() {
   const calculo = form.tipo === 'iva_incluido' ? calcularCompraConIVAIncluido(Number(form.montoIngresado), config.tasaIVA, config.decimales) : calcularCompraSinIVAIncluido(Number(form.montoIngresado), config.tasaIVA, config.decimales)
   const filtered = useMemo(() => compras.filter((item) => isInMonth(item.fecha, month, currentYear()) && (empresaId === 'all' || item.empresaId === empresaId) && (tipo === 'all' || item.tipo === tipo)), [compras, month, empresaId, tipo])
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!form.fecha || !form.empresaId || Number(form.montoIngresado) <= 0) return
     const payload = { ...form, montoIngresado: Number(form.montoIngresado), ...calculo }
-    if (editing) {
-      updateCompra(payload)
-    } else {
-      addCompra(payload)
+    try {
+      if (editing) {
+        await updateCompra(payload)
+        toast.success('Compra actualizada correctamente.')
+      } else {
+        await addCompra(payload)
+        toast.success('Compra registrada correctamente.')
+      }
+      setForm(emptyCompra())
+    } catch {
+      toast.error('Ocurrio un error al guardar. Intenta nuevamente.')
     }
-    setForm(emptyCompra())
+  }
+
+  const removeCompra = async (id: string) => {
+    if (!confirm('Eliminar compra?')) return
+    try {
+      await deleteCompra(id)
+      toast.success('Compra eliminada correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al eliminar. Intenta nuevamente.')
+    }
   }
 
   return (
@@ -56,7 +74,7 @@ export function ComprasView() {
             <Field label="Filtro empresa" tooltip="Muestra compras de una empresa especifica o todas."><select className={inputClass} value={empresaId} onChange={(e) => setEmpresaId(e.target.value)}><option value="all">Todas las empresas</option>{empresas.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></Field>
             <Field label="Filtro tipo" tooltip="Filtra por compras ingresadas con IVA incluido o sin IVA incluido."><select className={inputClass} value={tipo} onChange={(e) => setTipo(e.target.value)}><option value="all">Todos los tipos</option><option value="iva_incluido">Con IVA incluido</option><option value="sin_iva">Sin IVA incluido</option></select></Field>
           </div>
-          <div className="overflow-visible md:overflow-x-auto xl:overflow-visible"><table className="tablet-card-table tablet-table w-full min-w-[980px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-2"><TooltipLabel tooltip="Fecha registrada para la compra.">Fecha</TooltipLabel></th><th><TooltipLabel tooltip="Proveedor asociado a la compra.">Empresa</TooltipLabel></th><th className="tablet-optional"><TooltipLabel tooltip="Monto original que ingresaste.">Monto ingresado</TooltipLabel></th><th className="tablet-optional"><TooltipLabel tooltip="Indica si el monto tenia IVA incluido o no.">Tipo</TooltipLabel></th><th><TooltipLabel tooltip="Monto neto calculado sin IVA.">Monto sin IVA</TooltipLabel></th><th><TooltipLabel tooltip="IVA de la compra calculado automaticamente.">IVA compra</TooltipLabel></th><th><TooltipLabel tooltip="Total con IVA calculado automaticamente.">Total con IVA</TooltipLabel></th><th className="tablet-actions text-right"><TooltipLabel tooltip="Editar o eliminar la compra.">Acciones</TooltipLabel></th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((item) => <tr key={item.id}><td className="py-3" data-label="Fecha">{formatDate(item.fecha)}</td><td className="tablet-card-primary font-medium text-slate-950" data-label="Empresa">{empresas.find((e) => e.id === item.empresaId)?.nombre}</td><td className="tablet-optional" data-label="Monto ingresado">{formatearMoneda(item.montoIngresado, config)}</td><td className="tablet-optional" data-label="Tipo">{item.tipo === 'iva_incluido' ? 'Con IVA incluido' : 'Sin IVA incluido'}</td><td data-label="Monto sin IVA">{formatearMoneda(item.montoSinIVA, config)}</td><td data-label="IVA compra">{formatearMoneda(item.iva, config)}</td><td data-label="Total con IVA">{formatearMoneda(item.montoTotal, config)}</td><td className="tablet-card-actions text-right" data-label="Acciones"><span className="inline-flex items-center gap-2"><button className={secondaryButtonClass} onClick={() => setForm(item)}><Edit2 size={15} /></button><InfoTooltip text="Carga esta compra en el formulario para modificarla." /></span><span className="ml-2 inline-flex items-center gap-2"><button className={dangerButtonClass} onClick={() => confirm('Eliminar compra?') && deleteCompra(item.id)}><Trash2 size={15} /></button><InfoTooltip text="Elimina definitivamente esta compra del control local." /></span></td></tr>)}</tbody></table></div>
+          <div className="overflow-visible md:overflow-x-auto xl:overflow-visible"><table className="tablet-card-table tablet-table w-full min-w-[980px] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase text-slate-500"><tr><th className="py-2"><TooltipLabel tooltip="Fecha registrada para la compra.">Fecha</TooltipLabel></th><th><TooltipLabel tooltip="Proveedor asociado a la compra.">Empresa</TooltipLabel></th><th className="tablet-optional"><TooltipLabel tooltip="Monto original que ingresaste.">Monto ingresado</TooltipLabel></th><th className="tablet-optional"><TooltipLabel tooltip="Indica si el monto tenia IVA incluido o no.">Tipo</TooltipLabel></th><th><TooltipLabel tooltip="Monto neto calculado sin IVA.">Monto sin IVA</TooltipLabel></th><th><TooltipLabel tooltip="IVA de la compra calculado automaticamente.">IVA compra</TooltipLabel></th><th><TooltipLabel tooltip="Total con IVA calculado automaticamente.">Total con IVA</TooltipLabel></th><th className="tablet-actions text-right"><TooltipLabel tooltip="Editar o eliminar la compra.">Acciones</TooltipLabel></th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((item) => <tr key={item.id}><td className="py-3" data-label="Fecha">{formatDate(item.fecha)}</td><td className="tablet-card-primary font-medium text-slate-950" data-label="Empresa">{empresas.find((e) => e.id === item.empresaId)?.nombre}</td><td className="tablet-optional" data-label="Monto ingresado">{formatearMoneda(item.montoIngresado, config)}</td><td className="tablet-optional" data-label="Tipo">{item.tipo === 'iva_incluido' ? 'Con IVA incluido' : 'Sin IVA incluido'}</td><td data-label="Monto sin IVA">{formatearMoneda(item.montoSinIVA, config)}</td><td data-label="IVA compra">{formatearMoneda(item.iva, config)}</td><td data-label="Total con IVA">{formatearMoneda(item.montoTotal, config)}</td><td className="tablet-card-actions text-right" data-label="Acciones"><span className="inline-flex items-center gap-2"><button className={secondaryButtonClass} onClick={() => setForm(item)}><Edit2 size={15} /></button><InfoTooltip text="Carga esta compra en el formulario para modificarla." /></span><span className="ml-2 inline-flex items-center gap-2"><button className={dangerButtonClass} onClick={() => void removeCompra(item.id)}><Trash2 size={15} /></button><InfoTooltip text="Elimina definitivamente esta compra del control local." /></span></td></tr>)}</tbody></table></div>
         </Panel>
       </div>
     </>

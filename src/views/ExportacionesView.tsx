@@ -2,12 +2,14 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { FileSpreadsheet } from 'lucide-react'
 import { Field, Panel, SectionHeader, buttonClass, inputClass } from '../components/ui'
+import { useToast } from '../components/toastContext'
 import { useAppStore } from '../store/useAppStore'
 import { currentMonth, currentYear, monthNames } from '../utils/date'
 import { exportarExcel } from '../utils/exportExcel'
 
 export function ExportacionesView() {
   const { empresas, compras, ventas, config } = useAppStore()
+  const toast = useToast()
   const [mode, setMode] = useState<'month' | 'months' | 'range'>('month')
   const [month, setMonth] = useState(currentMonth())
   const [toMonth, setToMonth] = useState(currentMonth())
@@ -21,6 +23,9 @@ export function ExportacionesView() {
     setBusy(true)
     try {
       await exportarExcel(empresas, compras, ventas, config, mode === 'month' ? { month, year } : mode === 'months' ? { fromMonth: month, toMonth, year } : { from, to })
+      toast.success('Excel exportado correctamente.')
+    } catch {
+      toast.error('Ocurrio un error al exportar Excel. Intenta nuevamente.')
     } finally {
       setBusy(false)
     }
