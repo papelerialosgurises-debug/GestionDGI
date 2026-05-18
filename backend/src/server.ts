@@ -22,6 +22,12 @@ const toNullableString = (value: unknown) => {
   return text || null
 }
 
+const routeParamString = (value: unknown) => {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
+  throw new Error('Parametro invalido')
+}
+
 const toDate = (value: unknown) => {
   const text = toString(value)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new Error('Fecha invalida')
@@ -140,7 +146,7 @@ app.post('/api/empresas', asyncRoute(async (request, response) => {
 
 app.put('/api/empresas/:id', asyncRoute(async (request, response) => {
   const empresa = await prisma.empresa.update({
-    where: { id: request.params.id },
+    where: { id: routeParamString(request.params.id) },
     data: {
       nombre: toString(request.body.nombre).trim(),
       rut: toNullableString(request.body.rut),
@@ -154,7 +160,7 @@ app.put('/api/empresas/:id', asyncRoute(async (request, response) => {
 }))
 
 app.delete('/api/empresas/:id', asyncRoute(async (request, response) => {
-  await prisma.empresa.delete({ where: { id: request.params.id } })
+  await prisma.empresa.delete({ where: { id: routeParamString(request.params.id) } })
   response.status(204).end()
 }))
 
@@ -171,12 +177,12 @@ app.post('/api/compras', asyncRoute(async (request, response) => {
 }))
 
 app.put('/api/compras/:id', asyncRoute(async (request, response) => {
-  const compra = await prisma.compra.update({ where: { id: request.params.id }, data: compraData(request.body) })
+  const compra = await prisma.compra.update({ where: { id: routeParamString(request.params.id) }, data: compraData(request.body) })
   response.json(serializeCompra(compra))
 }))
 
 app.delete('/api/compras/:id', asyncRoute(async (request, response) => {
-  await prisma.compra.delete({ where: { id: request.params.id } })
+  await prisma.compra.delete({ where: { id: routeParamString(request.params.id) } })
   response.status(204).end()
 }))
 
@@ -193,12 +199,12 @@ app.post('/api/ventas', asyncRoute(async (request, response) => {
 }))
 
 app.put('/api/ventas/:id', asyncRoute(async (request, response) => {
-  const venta = await prisma.venta.update({ where: { id: request.params.id }, data: ventaData(request.body) })
+  const venta = await prisma.venta.update({ where: { id: routeParamString(request.params.id) }, data: ventaData(request.body) })
   response.json(serializeVenta(venta))
 }))
 
 app.delete('/api/ventas/:id', asyncRoute(async (request, response) => {
-  await prisma.venta.delete({ where: { id: request.params.id } })
+  await prisma.venta.delete({ where: { id: routeParamString(request.params.id) } })
   response.status(204).end()
 }))
 
